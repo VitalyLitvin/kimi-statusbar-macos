@@ -19,7 +19,7 @@ run:
 	swift run
 
 app: build
-	rm -rf "dist"
+	rm -rf "$(APP_DIR)"
 	mkdir -p "$(MACOS)" "$(RESOURCES)"
 	cp "$(BUILD_DIR)/$(BINARY)" "$(MACOS)/$(APP_NAME)"
 	chmod +x "$(MACOS)/$(APP_NAME)"
