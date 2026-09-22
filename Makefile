@@ -41,15 +41,19 @@ app: build
 	'  <key>CFBundlePackageType</key>' \
 	'  <string>APPL</string>' \
 	'  <key>CFBundleShortVersionString</key>' \
-	'  <string>0.1.0</string>' \
+	'  <string>0.1.1</string>' \
 	'  <key>CFBundleVersion</key>' \
-	'  <string>1</string>' \
+	'  <string>2</string>' \
 	'  <key>LSMinimumSystemVersion</key>' \
 	'  <string>13.0</string>' \
 	'  <key>LSUIElement</key>' \
 	'  <true/>' \
 	'</dict>' \
 	'</plist>' > "$(CONTENTS)/Info.plist"
+	# Sign the whole bundle (binary alone is only linker-signed; a bundle-level
+	# ad-hoc signature is what lets Gatekeeper's right-click Open work on
+	# downloaded copies).
+	codesign --force --sign - "$(APP_DIR)"
 
 # Full local setup: app into /Applications + hooks into ~/.kimi-code/config.toml.
 install: app

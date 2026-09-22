@@ -14,14 +14,12 @@ const path = require("path");
 const cp = require("child_process");
 
 const BUNDLE_ID = "com.local.kimistatusbar";
-const EXEC = "KimiStatusBar";
-const dir = path.join(os.homedir(), ".kimi-code", "statusbar");
+const dir = path.join(process.env.KIMI_CODE_HOME || path.join(os.homedir(), ".kimi-code"), "statusbar");
 const sessDir = path.join(dir, "sessions.d");
 const event = process.argv[2];
 
 fs.mkdirSync(sessDir, { recursive: true });
 
-const running = () => { try { cp.execSync(`pgrep -x ${EXEC}`, { stdio: "ignore" }); return true; } catch { return false; } };
 const safeId = (s) => String(s || "").replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 64) || "unknown";
 
 let input = "", done = false;
@@ -37,9 +35,9 @@ function run() {
   id = safeId(id);
 
   if (event === "start") {
-    // If the app isn't running, any leftover session files are stale (e.g. a prior
-    // crash) — clear them so the count starts honest.
-    if (!running()) { try { for (const f of fs.readdirSync(sessDir)) fs.rmSync(path.join(sessDir, f), { force: true }); } catch {} }
+    // No mass-clearing of leftover files here: the app ignores session files
+    // whose mtime is older than 10 minutes, so stale files are harmless, and
+    // clearing them races with other sessions starting at the same moment.
     try { fs.writeFileSync(path.join(sessDir, id), ""); } catch {}
     cp.spawn("open", ["-g", "-b", BUNDLE_ID], { stdio: "ignore", detached: true }).unref();
   } else if (event === "end") {

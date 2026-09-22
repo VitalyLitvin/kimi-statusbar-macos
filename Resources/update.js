@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 // Invoked by Kimi Code hooks (see [[hooks]] in ~/.kimi-code/config.toml). Reads the
 // hook JSON payload on stdin, maps the event to a status, and atomically writes
-// ~/.kimi-code/statusbar/state.json. Prints nothing: stdout of blockable events
+// state.json under the Kimi Code data dir ($KIMI_CODE_HOME, default
+// ~/.kimi-code). Prints nothing: stdout of blockable events
 // (UserPromptSubmit/PreToolUse/Stop) is appended to the model context.
-// Usage: node update.js <prompt|pre|post|permission|permission_result|stop|interrupt>
+// Usage: node update.js <prompt|pre|post|permission|permission_result|stop|interrupt|notify>
 
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const cp = require("child_process");
 
-const dir = path.join(os.homedir(), ".kimi-code", "statusbar");
+const dir = path.join(process.env.KIMI_CODE_HOME || path.join(os.homedir(), ".kimi-code"), "statusbar");
 const statePath = path.join(dir, "state.json");
 const event = process.argv[2] || "";
 
@@ -23,9 +24,13 @@ const TOOL_LABELS = {
   CronList: "Scheduling", TaskOutput: "Checking task", WaitFor: "Waiting for task",
 };
 
-let raw = "";
+let raw = "", handled = false;
 process.stdin.on("data", (d) => (raw += d));
-process.stdin.on("end", () => {
+process.stdin.on("end", handle);
+process.stdin.on("error", handle); // never hang the hook on a broken pipe
+
+function handle() {
+  if (handled) return; handled = true;
   let p = {};
   try { p = JSON.parse(raw || "{}"); } catch {}
 
@@ -94,6 +99,10 @@ process.stdin.on("end", () => {
       state = "done"; label = "Done"; startedAt = 0; break;
     case "interrupt":
       state = "waiting"; label = "Interrupted"; startedAt = 0; break;
+    case "notify":
+      // Notification with matcher "task.completed": a background task finished.
+      // Surfaces as done so the app plays the completion sound.
+      state = "done"; label = "Task completed"; startedAt = 0; break;
     default:
       return;
   }
@@ -105,4 +114,4 @@ process.stdin.on("end", () => {
     fs.writeFileSync(tmp, JSON.stringify(out));
     fs.renameSync(tmp, statePath);
   } catch {}
-});
+}

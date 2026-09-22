@@ -15,8 +15,9 @@ const path = require("path");
 const cp = require("child_process");
 
 const home = os.homedir();
-const sbDir = path.join(home, ".kimi-code", "statusbar");
-const configPath = path.join(home, ".kimi-code", "config.toml");
+const kimiHome = process.env.KIMI_CODE_HOME || path.join(home, ".kimi-code");
+const sbDir = path.join(kimiHome, "statusbar");
+const configPath = path.join(kimiHome, "config.toml");
 const MARKER = sbDir; // every hook command we add points inside this dir
 const HEADER = "# --- Kimi Status Bar hooks (managed by install.js) ---";
 
@@ -74,24 +75,29 @@ function hookBlock(node) {
   const cmd = (script, arg) => `${node} ${path.join(sbDir, script)} ${arg}`;
   const hooks = [
     // State hooks (drive the icon/label)
-    ["UserPromptSubmit", cmd("update.js", "prompt")],
-    ["PreToolUse", cmd("update.js", "pre")],
-    ["PostToolUse", cmd("update.js", "post")],
-    ["PermissionRequest", cmd("update.js", "permission")],
-    ["PermissionResult", cmd("update.js", "permission_result")],
-    ["Stop", cmd("update.js", "stop")],
-    ["Interrupt", cmd("update.js", "interrupt")],
+    ["UserPromptSubmit", "", cmd("update.js", "prompt")],
+    ["PreToolUse", "", cmd("update.js", "pre")],
+    ["PostToolUse", "", cmd("update.js", "post")],
+    ["PermissionRequest", "", cmd("update.js", "permission")],
+    ["PermissionResult", "", cmd("update.js", "permission_result")],
+    ["Stop", "", cmd("update.js", "stop")],
+    ["Interrupt", "", cmd("update.js", "interrupt")],
+    // A background task finished while the session was idle -> completion sound
+    ["Notification", "task\\.completed", cmd("update.js", "notify")],
     // Lifecycle hooks (the app quits itself once no sessions remain)
-    ["SessionStart", cmd("lifecycle.js", "start")],
-    ["SessionEnd", cmd("lifecycle.js", "end")],
+    ["SessionStart", "", cmd("lifecycle.js", "start")],
+    ["SessionEnd", "", cmd("lifecycle.js", "end")],
   ];
   return (
     HEADER +
     "\n" +
     hooks
       .map(
-        ([event, command]) =>
-          `[[hooks]]\nevent = "${event}"\ncommand = "${command}"\ntimeout = 5\n`
+        ([event, matcher, command]) =>
+          // matcher is a regex: emit it as a TOML literal string ('...') so the
+          // backslash survives without escaping (a basic "..." string would make
+          // the whole file fail to decode).
+          `[[hooks]]\nevent = "${event}"${matcher ? `\nmatcher = '${matcher}'` : ""}\ncommand = "${command}"\ntimeout = 5\n`
       )
       .join("\n")
   );
@@ -99,6 +105,15 @@ function hookBlock(node) {
 
 function main() {
   const node = stableNodePath();
+
+  // Without an existing config.toml the CLI has never run here (or uses a
+  // different KIMI_CODE_HOME). Refuse rather than write a hooks-only config
+  // that could shadow the file the login flow would have created.
+  if (!fs.existsSync(configPath)) {
+    console.error("No Kimi Code config found at", configPath);
+    console.error("Run `kimi` once (log in) and retry.");
+    process.exit(1);
+  }
 
   fs.mkdirSync(sbDir, { recursive: true });
   for (const f of ["update.js", "lifecycle.js"]) {
@@ -136,6 +151,12 @@ function main() {
   console.log("Backup (first run only):", configPath + ".bak-statusbar");
   console.log("");
   console.log("Already-running Kimi Code sessions pick the hooks up on their next start.");
+  if (process.env.KIMI_CODE_HOME) {
+    console.log("");
+    console.log("KIMI_CODE_HOME detected. The menu bar app reads ~/.kimi-code by default;");
+    console.log("point it at your data dir once per login:");
+    console.log(`  launchctl setenv KIMI_STATUSBAR_DIR ${JSON.stringify(sbDir)}`);
+  }
 }
 
 try {

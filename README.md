@@ -9,7 +9,7 @@ A macOS menu bar app that shows what [Kimi Code CLI](https://www.kimi.com/code/d
 - **Live status in the menu bar** — crescent moon icon + label: `Thinking…`, `Running command`, `Editing`, `Browsing web`, …
 - **Color-coded states** — blue: working · orange: awaiting your permission · green: done · amber: waiting for input
 - **Elapsed timer** while Kimi is working
-- **Completion sound** when a turn finishes (the same `completion.mp3` style as other status bars)
+- **Completion sound** when a turn finishes or a background task completes (the same `completion.mp3` style as other status bars)
 - **Dropdown menu** with project, session title, and quick actions
 - **Self-managing lifecycle** — launches when a Kimi Code session starts, quits ~15 s after the last session ends, relaunches itself on the next event
 
@@ -44,7 +44,9 @@ Removes the hooks from `~/.kimi-code/config.toml`, deletes `~/.kimi-code/statusb
 
 ## How it works
 
-Kimi Code [hooks](https://www.kimi.com/code/docs/en/kimi-code-cli/customization/hooks.html) (`UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PermissionRequest`, `PermissionResult`, `Stop`, `Interrupt`, `SessionStart`, `SessionEnd`) fire tiny Node scripts that atomically write `~/.kimi-code/statusbar/state.json` and touch per-session files under `sessions.d/`. The app polls that state once a second and renders it. Session files older than 10 minutes are ignored, so killed terminals and one-shot `kimi -p` runs never leave the app hanging.
+Kimi Code [hooks](https://www.kimi.com/code/docs/en/kimi-code-cli/customization/hooks.html) (`UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PermissionRequest`, `PermissionResult`, `Stop`, `Interrupt`, `Notification`, `SessionStart`, `SessionEnd`) fire tiny Node scripts that atomically write `~/.kimi-code/statusbar/state.json` and touch per-session files under `sessions.d/`. The app polls that state once a second and renders it. Session files older than 10 minutes are ignored, so killed terminals and one-shot `kimi -p` runs never leave the app hanging.
+
+If you relocated the Kimi Code data directory with `KIMI_CODE_HOME`, the hook scripts honor it automatically; for the menu bar app, run `launchctl setenv KIMI_STATUSBAR_DIR ~/.kimi-code-custom/statusbar` once per login (`install.js` prints the exact command).
 
 ## Build from source
 

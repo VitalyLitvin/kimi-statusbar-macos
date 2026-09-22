@@ -22,8 +22,14 @@ final class StatusStore {
     private let sessionsURL: URL
 
     init() {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        dir = home.appendingPathComponent(".kimi-code/statusbar")
+        // KIMI_STATUSBAR_DIR overrides the data dir (for KIMI_CODE_HOME setups
+        // where hooks write elsewhere; export it via launchctl setenv).
+        if let override = ProcessInfo.processInfo.environment["KIMI_STATUSBAR_DIR"], !override.isEmpty {
+            dir = URL(fileURLWithPath: override)
+        } else {
+            let home = FileManager.default.homeDirectoryForCurrentUser
+            dir = home.appendingPathComponent(".kimi-code/statusbar")
+        }
         stateURL = dir.appendingPathComponent("state.json")
         sessionsURL = dir.appendingPathComponent("sessions.d")
     }
@@ -51,6 +57,12 @@ final class StatusStore {
             s.state = "waiting"
             s.label = "Idle"
             s.startedAt = 0
+        }
+        // "Done" is a moment, not a status: once the user has had time to notice,
+        // fall back to waiting-for-input.
+        if s.state == "done" && age > 45 {
+            s.state = "waiting"
+            s.label = "Waiting for input"
         }
         return s
     }
@@ -113,8 +125,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         current = store.read()
         sessions = store.liveSessionCount()
 
-        // Completion sound on the transition into "done" (turn finished).
-        if previousState != "done" && current.state == "done" {
+        // Completion sound on a fresh transition into "done" (turn finished or a
+        // background task completed). The ts guard keeps a relaunched app from
+        // replaying the sound for a long-past completion.
+        let now = Date().timeIntervalSince1970
+        if previousState != "done" && current.state == "done" && now - current.ts < 15 {
             playCompletionSound()
         }
 
@@ -201,6 +216,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(title: "Refresh", action: #selector(refreshFromMenu), keyEquivalent: "r"))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit Kimi Status Bar", action: #selector(quit), keyEquivalent: "q"))
+
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        let about = NSMenuItem(title: "Kimi Status Bar v\(version)", action: nil, keyEquivalent: "")
+        about.isEnabled = false
+        menu.addItem(about)
 
         return menu
     }

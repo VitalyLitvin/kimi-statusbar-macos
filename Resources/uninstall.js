@@ -9,8 +9,9 @@ const path = require("path");
 const cp = require("child_process");
 
 const home = os.homedir();
-const sbDir = path.join(home, ".kimi-code", "statusbar");
-const configPath = path.join(home, ".kimi-code", "config.toml");
+const kimiHome = process.env.KIMI_CODE_HOME || path.join(home, ".kimi-code");
+const sbDir = path.join(kimiHome, "statusbar");
+const configPath = path.join(kimiHome, "config.toml");
 const MARKER = sbDir;
 const APP = "/Applications/KimiStatusBar.app";
 
