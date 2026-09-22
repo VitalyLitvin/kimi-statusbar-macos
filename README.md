@@ -49,7 +49,7 @@ Kimi Code [hooks](https://www.kimi.com/code/docs/en/kimi-code-cli/customization/
 ## Build from source
 
 ```sh
-git clone <this repo> && cd kimi-statusbar-macos
+git clone https://github.com/VitalyLitvin/kimi-statusbar-macos.git && cd kimi-statusbar-macos
 make install   # builds universal binary, installs app + hooks
 make dmg       # or: release artifacts in dist/
 ```
